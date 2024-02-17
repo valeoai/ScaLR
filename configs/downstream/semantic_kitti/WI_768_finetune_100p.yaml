@@ -1,0 +1,31 @@
+waffleiron:
+  drop_path: 0.2
+
+classif:
+  nb_class: 19  # Number of classes on semantic kitti (after removing the ignore class)
+
+dataloader:
+  batch_size: 8
+  num_workers: 128
+  max_points: 20000
+
+augmentations:
+  rotation:
+    - [2, 6]
+  flip_xy: null
+  scale:
+    - [4, 5, 6, 7]
+    - 0.1
+
+loss:
+  lovasz: 1.0
+
+optim:
+  lr: .002
+  weight_decay: 0.0
+  layer_decay: 0.99
+
+scheduler:
+  min_lr: 0.0
+  max_epoch: 10
+  epoch_warmup: 1

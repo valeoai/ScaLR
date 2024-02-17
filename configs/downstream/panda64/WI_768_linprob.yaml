@@ -1,0 +1,33 @@
+waffleiron:
+  drop_path: 0.0
+
+classif:
+  nb_class: 17  # Number of classes on pandaset (after removing the ignore class)
+
+dataloader:
+  batch_size: 8
+  num_workers: 128
+  max_points: 20000
+  new_grid_shape: [[512, 512], [512, 32], [512, 32]]
+  new_fov: [[-128, -128, -8], [128, 128, 8]]  
+
+augmentations:
+  rotation:
+    - [2, 6]
+  flip_xy: null
+  scale:
+    - [4, 5, 6, 7]
+    - 0.1
+
+loss:
+  lovasz: 1.0
+
+optim:
+  lr: .001
+  weight_decay: 0.003
+  layer_decay: null
+
+scheduler:
+  min_lr: 0.00001
+  max_epoch: 50
+  epoch_warmup: 2

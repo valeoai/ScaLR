@@ -1,0 +1,16 @@
+# Compiled python modules.
+__pycache__/
+*.pyc
+
+# Python package
+*.egg-info/
+*.egg
+
+# Numpy files
+*.npy
+*.npz
+
+# Folder used to store models
+logs/
+my_own_logs/
+dinov2_weights/
