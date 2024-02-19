@@ -9,11 +9,12 @@ ScaLR provides high-quality 3D self-supervised features on lidar data. These fea
 [*Spyros Gidaris*<sup>1</sup>](https://scholar.google.fr/citations?user=7atfg7EAAAAJ&hl=en),
 [*Alexandre Boulch*<sup>1</sup>](http://boulch.eu),
 [*Oriane Siméoni*<sup>1</sup>](https://osimeoni.github.io/),
-[*Corentin Sautier*<sup>1,2</sup>](https://csautier.github.io/),
-[*Patrick Pérez*<sup>1</sup>](https://ptrckprz.github.io/),
+[*Corentin Sautier*<sup>1,3</sup>](https://csautier.github.io/),
+[*Patrick Pérez*<sup>2,*</sup>](https://ptrckprz.github.io/),
 [*Andrei Bursuc*<sup>1</sup>](https://abursuc.github.io/),
-[*Renaud Marlet*<sup>1,2</sup>](http://imagine.enpc.fr/~marletr/)  
-<sup>1</sup>*valeo.ai, France* and <sup>2</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.
+[*Renaud Marlet*<sup>1,3</sup>](http://imagine.enpc.fr/~marletr/)  
+<sup>1</sup>*valeo.ai, France*, <sup>2</sup>*Kyutai, France* and <sup>2</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.\
+<sup>*</sup>*Work done at valeo.ai.*
 
 <p align="center">
   <img src=./illustration.png alt="Correlation properties of distilled 3D features"/>
