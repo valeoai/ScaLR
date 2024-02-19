@@ -13,7 +13,7 @@ ScaLR provides high-quality 3D self-supervised features on lidar data. These fea
 [*Patrick Pérez*<sup>2,*</sup>](https://ptrckprz.github.io/),
 [*Andrei Bursuc*<sup>1</sup>](https://abursuc.github.io/),
 [*Renaud Marlet*<sup>1,3</sup>](http://imagine.enpc.fr/~marletr/)  
-<sup>1</sup>*valeo.ai, France*, <sup>2</sup>*Kyutai, France* and <sup>2</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.\
+<sup>1</sup>*valeo.ai, France*, <sup>2</sup>*Kyutai, France* and <sup>3</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.\
 <sup>*</sup>*Work done at valeo.ai.*
 
 <p align="center">
