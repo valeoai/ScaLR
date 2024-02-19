@@ -54,7 +54,7 @@ git clone https://github.com/valeoai/ScaLR
 cd ScaLR
 ```
 
-Download and untar the following file:
+Download and untar the following [file](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/info_datasets.tar.gz):
 ```bash
 wget https://github.com/valeoai/ScaLR/releases/download/v0.1.0/info_datasets.tar.gz
 tar -xvzf info_datasets.tar.gz
@@ -123,7 +123,7 @@ We provide here models obtained after finetuning the above pretrained [backbone]
 | WI-48-768  | DINOv2 ViT-L/14 | Pandar GT     | 41.1% | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-finetuning-pandagt-100p.tar.gz)  |
 
 
-Finally, we also provide the WaffleIron WI-48-768 trained on nuscenes **without** pretraining [here](WI_768-no_pretraining-finetuning-nuscenes-100p.tar.gz). It reaches a mIoU of 78.7%.
+Finally, we also provide the WaffleIron WI-48-768 trained on nuscenes **without** pretraining [here](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-no_pretraining-finetuning-nuscenes-100p.tar.gz). It reaches a mIoU of 78.7%.
 
 For any of the model above, please download the associated file and untar it in the working directory `ScaLR/`. For example:
 ```
