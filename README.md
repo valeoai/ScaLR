@@ -1,5 +1,9 @@
 # ScaLR
 
+PyTorch code and models for ScaLR image-to-lidar distillation method.
+
+ScaLR provides high-quality 3D self-supervised features on lidar data. These features are obtained by distilling (without any annotations) powerful visual features, such as those obtained from DINOv2, into high-capacity 3D backbones using a mixture of diverse autonomous driving datasets. 
+
 [**Three Pillars improving Vision Foundation Model Distillation for Lidar**](https://arxiv.org/abs/2310.17504)  
 [*Gilles Puy*<sup>1</sup>](https://sites.google.com/site/puygilles/home),
 [*Spyros Gidaris*<sup>1</sup>](https://scholar.google.fr/citations?user=7atfg7EAAAAJ&hl=en),
@@ -11,7 +15,10 @@
 [*Renaud Marlet*<sup>1,2</sup>](http://imagine.enpc.fr/~marletr/)  
 <sup>1</sup>*valeo.ai, France* and <sup>2</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.
 
-![](./illustration.png)
+<p align="center">
+  <img src=./illustration.png alt="Correlation properties of distilled 3D features"/>
+Correlation maps with a point located on a car on four different scenes extracted from nuScenes, SemanticKITTI, Pandar64 and PandarGT. The features used to compute these maps are extracted from a single with ScaLR pretrained backbone on all four datasets. Color goes from blue to red for low and high values.
+</p>
 
 If you find this code or work useful, please cite the following [paper](https://arxiv.org/abs/2310.17504):
 ```
