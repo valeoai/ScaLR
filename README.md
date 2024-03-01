@@ -1,8 +1,6 @@
 # ScaLR
 
-PyTorch code and models for ScaLR image-to-lidar distillation method.
-
-ScaLR provides high-quality 3D self-supervised features on lidar data. These features are obtained by distilling (without any annotations) powerful visual features, such as those obtained from DINOv2, into high-capacity 3D backbones using a mixture of diverse autonomous driving datasets. 
+PyTorch code and models for ScaLR image-to-lidar distillation method. This work has been accepted to **CVPR24**.
 
 [**Three Pillars improving Vision Foundation Model Distillation for Lidar**](https://arxiv.org/abs/2310.17504)  
 [*Gilles Puy*<sup>1</sup>](https://sites.google.com/site/puygilles/home),
@@ -16,6 +14,8 @@ ScaLR provides high-quality 3D self-supervised features on lidar data. These fea
 <sup>1</sup>*valeo.ai, France*, <sup>2</sup>*Kyutai, France* and <sup>3</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.\
 <sup>*</sup>*Work done at valeo.ai.*
 
+ScaLR provides high-quality 3D self-supervised features on lidar data. These features are obtained by distilling (without any annotations) powerful visual features, such as those obtained from DINOv2, into high-capacity 3D backbones using a mixture of diverse autonomous driving datasets. 
+
 <p align="center">
   <img src=./illustration.png alt="Correlation properties of distilled 3D features"/>
 Correlation maps with a point located on a car on four different scenes extracted from nuScenes, SemanticKITTI, Pandar64 and PandarGT. The features used to compute these maps are extracted from our ScaLR pretrained backbone pretrained jointly on all four datasets. Color goes from blue to red for low and high values.
@@ -23,11 +23,11 @@ Correlation maps with a point located on a car on four different scenes extracte
 
 If you find this code or work useful, please cite the following [paper](https://arxiv.org/abs/2310.17504):
 ```
-@article{puy23scalr,
+@inproceedings{puy24scalr,
   title={Three Pillars improving Vision Foundation Model Distillation for Lidar},
   author={Puy, Gilles and Gidaris, Spyros and Boulch, Alexandre and Sim\'eoni, Oriane and Sautier, Corentin and P\'erez, Patrick and Bursuc, Andrei and Marlet, Renaud},
-  journal={arXiv:2310.17504},
-  year={2023}
+  booktitle={CVPR},
+  year={2024}
 }
 ```
 
