@@ -44,7 +44,7 @@ If you find this code or work useful, please cite the following [paper](https://
 
 ### Environment
 
-Create the following environment and clone this repo:
+The results were obtained with the environment below. The code has been tested and the results reproduced succesfully with pytorch>=2.2 (until 2.5 at least).
 ```bash
 conda create -n scalr
 conda activate scalr
