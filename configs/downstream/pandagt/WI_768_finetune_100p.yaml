@@ -1,16 +1,17 @@
 waffleiron:
   drop_path: 0.2
+  checkpointing: True
 
 classif:
-  nb_class: 17  # Number of classes on pandaset (after removing the ignore class)
+  nb_class: 17  # Number of classes on nuscenes (after removing the ignore class)
 
 dataloader:
   batch_size: 8
-  num_workers: 128
+  num_workers: 16
   max_points: 20000
   new_grid_shape: [[384, 384], [384, 32], [384, 32]]
   new_fov: [[-96, -96, -8], [96, 96, 8]]
-  
+
 augmentations:
   rotation:
     - [2, 6]
@@ -23,7 +24,7 @@ loss:
   lovasz: 1.0
 
 optim:
-  lr: .002
+  lr: .0001
   weight_decay: 0.0
   layer_decay: 0.99
 

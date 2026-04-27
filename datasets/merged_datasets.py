@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 from .im_pc_dataset import ImPcDataset
 from .nuscenes_for_scalr import NuScenesDistill
-from .semantic_kitti_for_scalr import SemanticKITTIDistill
 from .pandaset_for_scalr import PandaSet64Distill, PandaSetGTDistill
+from .semantic_kitti_for_scalr import SemanticKITTIDistill
 
 
 class MergedDatasetsDistill(ImPcDataset):

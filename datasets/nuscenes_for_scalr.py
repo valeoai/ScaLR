@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import copy
-import torch
+import os
+
 import numpy as np
-from PIL import Image
-from .pc_dataset import PCDataset
-from pyquaternion import Quaternion
-from .im_pc_dataset import ImPcDataset
-from nuscenes.utils.geometry_utils import view_points
+import torch
 from nuscenes.utils.data_classes import LidarPointCloud
+from nuscenes.utils.geometry_utils import view_points
+from PIL import Image
+from pyquaternion import Quaternion
+
+from .im_pc_dataset import ImPcDataset
+from .pc_dataset import PCDataset
 
 # For normalizing intensities
 MEAN_INT = 18.742355
@@ -40,7 +42,6 @@ class ClassMapper:
 
 
 class NuScenesSemSeg(PCDataset):
-
     CLASS_NAME = [
         "barrier",
         "bicycle",
@@ -68,11 +69,14 @@ class NuScenesSemSeg(PCDataset):
         self.std_int = STD_INT
 
         # Class mapping
-        current_folder = os.path.dirname(os.path.realpath(__file__))
         self.mapper = np.vectorize(ClassMapper().get_index)
 
         # List all keyframes
         self.ratio = ratio
+        self.load_frames()
+
+    def load_frames(self):
+        current_folder = os.path.dirname(os.path.realpath(__file__))
         if self.phase == "train":
             if self.ratio == "100p":
                 self.list_frames = np.load(
@@ -99,6 +103,7 @@ class NuScenesSemSeg(PCDataset):
         return len(self.list_frames)
 
     def load_pc(self, index):
+
         # Load point cloud
         pc = np.fromfile(
             os.path.join(self.rootdir, self.list_frames[index][0]),
@@ -138,6 +143,9 @@ class NuScenesDistill(ImPcDataset):
             "CAM_FRONT_LEFT",
         ]
 
+        self.load_keyframes()
+
+    def load_keyframes(self):
         # Load data
         self.list_keyframes = np.load(
             os.path.join(
@@ -238,7 +246,52 @@ class NuScenesDistill(ImPcDataset):
         )
         pairing_images = [matching_pixels]
 
-        return pc_base.points.T, images, np.concatenate(pairing_images)
+        return pc_base.points.T, images, np.concatenate(pairing_images), camera_name
+
+
+class NuScenesMiniSemSeg(NuScenesSemSeg):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.phase == "train":
+            assert len(self) == 24109
+        elif self.phase == "val":
+            assert len(self) == 4021
+        else:
+            raise ValueError("Case not handled")
+
+    def load_frames(self):
+        current_folder = os.path.dirname(os.path.realpath(__file__))
+        if self.phase == "train":
+            filename = "list_files_nuscenes_mini_train.npy"
+            self.list_frames = np.load(
+                os.path.join(current_folder, filename),
+                allow_pickle=True,
+            )
+        elif self.phase == "val":
+            self.list_frames = np.load(
+                os.path.join(
+                    current_folder,
+                    "list_files_nuscenes_mini_val.npy",
+                ),
+                allow_pickle=True,
+            )
+
+
+class NuScenesMiniDistill(NuScenesDistill):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert len(self.list_keyframes) == 24109
+
+    def load_keyframes(self):
+        # Load data
+        self.list_keyframes = np.load(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)),
+                f"nuscenes_data_mini_{self.phase}.npy",
+            ),
+            allow_pickle=True,
+        ).item()
+        assert len(self.list_keyframes) == 24109
 
 
 class NuScenesSemSeg_1p(NuScenesSemSeg):

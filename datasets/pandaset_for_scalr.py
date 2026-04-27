@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import copy
 import json
-import torch
+import os
+from glob import glob
+
 import numpy as np
 import pandas as pd
-from PIL import Image
-from glob import glob
+import torch
 import transforms3d as t3d
-from .pc_dataset import PCDataset
+from PIL import Image
+
 from .im_pc_dataset import ImPcDataset
+from .pc_dataset import PCDataset
 
 MEAN_INT_64 = 18.23640649
 STD_INT_64 = 25.86983417
@@ -85,7 +87,6 @@ def projection(
 
 
 class PandasetSemSeg(PCDataset):
-
     MAPPING_CLASS = {
         0: 0,  # 'Noise' -> noise
         1: 0,  # 'Smoke' -> noise
@@ -345,7 +346,7 @@ class PandasetDistill(ImPcDataset):
         )
         pairing_images = [matching_pixels]
 
-        return pc_base, images, np.concatenate(pairing_images)
+        return pc_base, images, np.concatenate(pairing_images), camera_name
 
 
 class Pandaset64SemSeg(PandasetSemSeg):

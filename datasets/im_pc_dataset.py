@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,123 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import numpy as np
+import torch
 import utils.transforms as tr
-from .pc_dataset import PCDataset, zero_pad
 from scipy.spatial import cKDTree as KDTree
 from torchvision.transforms.functional import resize as vision_resize
+
+from .pc_dataset import PCDataset, zero_pad
+
+
+class ImPcDataset(PCDataset):
+    """
+    Dataset matching a 3D points cloud and an image using projection.
+    """
+
+    def __init__(
+        self, max_points=None, im_size=[224, 448], aug_point_coord=True, **kwargs
+    ):
+        super().__init__(**kwargs)
+
+        # Image size at input of image backbone
+        self.im_size = im_size
+
+        # Limit number of points during training
+        if max_points is None:
+            self.limit_num_points = tr.Identity(inplace=False)
+        else:
+            assert self.phase == "train"
+            self.limit_num_points = tr.LimitNumPoints(
+                dims=(0, 1, 2),
+                max_point=max_points,
+                random=True,
+            )
+
+        # Apply augmentation on coordinate of the point
+        self.pc_augmentations = tr.Identity(inplace=False)
+        if aug_point_coord:
+            assert self.phase == "train"
+            self.pc_augmentations = tr.Compose(
+                [
+                    tr.Rotation(inplace=True, dim=2),
+                    tr.RandomApply(tr.FlipXY(inplace=True), prob=2 / 3),
+                    tr.Scale(inplace=True, dims=(0, 1, 2), range=0.1),
+                ]
+            )
+
+    def load_pc(self, index):
+        raise NotImplementedError()
+
+    def map_pc_to_image(self, pc, index, min_dist=1.0):
+        raise NotImplementedError()
+
+    def __len__(self):
+        raise NotImplementedError()
+
+    def resize_im(self, im, pairing_images=None):
+        # Rescale pixel coordinates
+        if pairing_images is not None:
+            rescale = [
+                1.0,
+                self.im_size[0] / im.shape[-2],
+                self.im_size[1] / im.shape[-1],
+            ]
+            pairing_images = np.floor(np.multiply(pairing_images, rescale))
+            pairing_images = pairing_images.astype(np.int64)
+        # Rescale image
+        im = vision_resize(im, self.im_size)
+        return im if pairing_images is None else (im, pairing_images)
+
+    def __getitem__(self, index):
+        # Load original point cloud
+        pc = self.load_pc(index)
+
+        # Voxelization
+        pc, _ = self.downsample(pc, None)
+
+        # Project point cloud to image
+        pc, images, pairing_images, camera_name = self.map_pc_to_image(pc, index)
+        images = torch.tensor(np.array(images, dtype=np.float32).transpose(0, 3, 1, 2))
+        assert len(pairing_images) > 0
+
+        # Limit number of points and ...
+        pc, _, idx = self.limit_num_points(pc, None, return_idx=True)
+        # ... adapt (points, pixels) pairs
+        pairing_images = pairing_images[idx]
+
+        # Apply augmentations
+        pc, _ = self.pc_augmentations(pc, None)
+
+        # Resize images
+        images, pairing_images = self.resize_im(images, pairing_images)
+
+        # Crop to fov and ...
+        pc, _, where = self.crop_to_fov(pc, None, return_mask=True)
+        # ... adapt (points, pixels) pairs
+        pairing_images = pairing_images[where]
+
+        # Get point features
+        pc = self.prepare_input_features(pc)
+
+        # Projection on 2D grid
+        cell_ind = self.get_occupied_2d_cells(pc)
+
+        # Embedding
+        kdtree = KDTree(pc[:, :3])
+        assert pc.shape[0] > self.num_neighbors
+        _, neighbors = kdtree.query(pc[:, :3], k=self.num_neighbors + 1)
+
+        #
+        out = (
+            pc[:, 3:].T[None],
+            images,
+            np.arange(pc.shape[0]),
+            pairing_images,
+            cell_ind[None],
+            neighbors.T[None],
+        )
+        return out
 
 
 class CollateDistillation:
@@ -73,98 +184,4 @@ class CollateDistillation:
             "pairing_points": pairing_points,
             "pairing_images": pairing_images,
         }
-
-        return out
-
-
-class ImPcDataset(PCDataset):
-    """
-    Dataset matching a 3D points cloud and an image using projection.
-    """
-
-    def __init__(self, max_points, im_size, **kwargs):
-        super().__init__(**kwargs)
-
-        assert self.phase == "train"
-
-        self.im_size = im_size
-
-        self.limit_num_points = tr.LimitNumPoints(
-            dims=(0, 1, 2),
-            max_point=max_points,
-            random=True,
-        )
-
-        self.pc_augmentations = tr.Compose(
-            [
-                tr.Rotation(inplace=True, dim=2),
-                tr.RandomApply(tr.FlipXY(inplace=True), prob=2 / 3),
-                tr.Scale(inplace=True, dims=(0, 1, 2), range=0.1),
-            ]
-        )
-
-    def load_pc(self, index):
-        raise NotImplementedError()
-
-    def map_pc_to_image(self, pc, index, min_dist=1.0):
-        raise NotImplementedError()
-
-    def __len__(self):
-        raise NotImplementedError()
-
-    def resize_im(self, im, pairing_images):
-        # Rescale pixel coordinates
-        rescale = [1.0, self.im_size[0] / im.shape[-2], self.im_size[1] / im.shape[-1]]
-        pairing_images = np.floor(np.multiply(pairing_images, rescale))
-        pairing_images = pairing_images.astype(np.int64)
-        # Rescale image
-        im = vision_resize(im, self.im_size)
-        return im, pairing_images
-
-    def __getitem__(self, index):
-        # Load original point cloud
-        pc = self.load_pc(index)
-
-        # Voxelization
-        pc, _ = self.downsample(pc, None)
-
-        # Project point cloud to image
-        pc, images, pairing_images = self.map_pc_to_image(pc, index)
-        images = torch.tensor(np.array(images, dtype=np.float32).transpose(0, 3, 1, 2))
-        assert len(pairing_images) > 0
-
-        # Limit number of points and ...
-        pc, _, idx = self.limit_num_points(pc, None, return_idx=True)
-        # ... adapt (points, pixels) pairs
-        pairing_images = pairing_images[idx]
-
-        # Apply augmentations
-        pc, _ = self.pc_augmentations(pc, None)
-        images, pairing_images = self.resize_im(images, pairing_images)
-
-        # Crop to fov and ...
-        pc, _, where = self.crop_to_fov(pc, None, return_mask=True)
-        # ... adapt (points, pixels) pairs
-        pairing_images = pairing_images[where]
-
-        # Get point features
-        pc = self.prepare_input_features(pc)
-
-        # Projection on 2D grid
-        cell_ind = self.get_occupied_2d_cells(pc)
-
-        # Embedding
-        kdtree = KDTree(pc[:, :3])
-        assert pc.shape[0] > self.num_neighbors
-        _, neighbors = kdtree.query(pc[:, :3], k=self.num_neighbors + 1)
-
-        out = (
-            pc[:, 3:].T[None],
-            images,
-            np.arange(pc.shape[0]),
-            pairing_images,
-            cell_ind[None],
-            neighbors.T[None],
-        )
-
         return out

@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import copy
-import yaml
-import numpy as np
-from PIL import Image
+import os
 from glob import glob
-from .pc_dataset import PCDataset
+
+import numpy as np
+import yaml
+from PIL import Image
+
 from .im_pc_dataset import ImPcDataset
+from .pc_dataset import PCDataset
 
 # For normalizing intensities
 MEAN_INT = 0.28613698
@@ -27,7 +29,6 @@ STD_INT = 0.14090556
 
 
 class SemanticKITTISemSeg(PCDataset):
-
     CLASS_NAME = [
         "car",  # 0
         "bicycle",  # 1
@@ -250,7 +251,7 @@ class SemanticKITTIDistill(ImPcDataset):
         )
         pairing_images = [matching_pixels]
 
-        return pc_base, images, np.concatenate(pairing_images)
+        return pc_base, images, np.concatenate(pairing_images), None
 
 
 class SemanticKITTISemSeg_1p(SemanticKITTISemSeg):

@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import os
-import yaml
-import torch
-import random
-import warnings
 import argparse
+import os
+import random
+import sys
+import warnings
+
 import numpy as np
+import torch
 import utils.transforms as tr
-from waffleiron import Segmenter
-from utils.metrics import SemSegLoss
-from utils.finetuner import Finetuner
-from utils.scheduler import WarmupCosine
+import yaml
 from datasets import LIST_DATASETS, Collate
+from utils.finetuner import Finetuner
+from utils.metrics import SemSegLoss
+from utils.scheduler import WarmupCosine
+from waffleiron import Segmenter
 
 
 def param_groups_lrd(
@@ -204,11 +205,23 @@ def get_dataloader(train_dataset, val_dataset, args):
 
 
 def get_optimizer(parameters, config):
-    return torch.optim.AdamW(
-        parameters,
-        lr=config["optim"]["lr"],
-        weight_decay=config["optim"]["weight_decay"],
-    )
+    which = config["optim"].get("which", "adamw")
+    if which == "adamw":
+        print("Optimizer is AdamW")
+        optim = torch.optim.AdamW(
+            parameters,
+            lr=config["optim"]["lr"],
+            weight_decay=config["optim"]["weight_decay"],
+        )
+    elif which == "sgd":
+        print("Optimizer is SGD")
+        optim = torch.optim.SGD(
+            parameters,
+            lr=config["optim"]["lr"],
+            momentum=0.9,
+            weight_decay=config["optim"]["weight_decay"],
+        )
+    return optim
 
 
 def get_scheduler(optimizer, config, len_train_loader):
@@ -242,29 +255,27 @@ def distributed_training(gpu, ngpus_per_node, args, config):
     model = Segmenter(
         input_channels=config["embedding"]["size_input"],
         feat_channels=config["waffleiron"]["nb_channels"],
+        nb_class=config["waffleiron"]["pretrain_dim"],
         depth=config["waffleiron"]["depth"],
         grid_shape=config["waffleiron"]["grids_size"],
-        nb_class=config["classif"]["nb_class"],
         drop_path_prob=config["waffleiron"]["drop_path"],
-        layer_norm=config["waffleiron"]["layernorm"],
+        gelu=config["waffleiron"]["gelu"],
+        mlp_classif=config["waffleiron"]["mlp_classif"],
+        mlp_hidden_size=config["waffleiron"]["hidden"],
+        checkpointing=config["waffleiron"]["checkpointing"],
     )
+
+    # Load pretrained model
     if args.pretrained_ckpt != "":
-        # Load pretrained model
-        ckpt = torch.load(args.pretrained_ckpt, map_location="cpu")
-        if ckpt.get("model_points") is not None:
-            ckpt = ckpt["model_points"]
-        else:
-            ckpt = ckpt["model_point"]
+        ckpt = torch.load(args.pretrained_ckpt, map_location="cpu")["model_point"]
         new_ckpt = {}
         for k in ckpt.keys():
             if k.startswith("module"):
                 new_ckpt[k[len("module.") :]] = ckpt[k]
             else:
                 new_ckpt[k] = ckpt[k]
-        model.classif = torch.nn.Conv1d(
-            config["waffleiron"]["nb_channels"], config["waffleiron"]["pretrain_dim"], 1
-        )
-        model.load_state_dict(new_ckpt)
+        msg = model.load_state_dict(new_ckpt, strict=True)
+        print(msg)
 
     # Re-init. classification layer (always a learnable layer)
     classif = torch.nn.Conv1d(
@@ -345,6 +356,11 @@ def distributed_training(gpu, ngpus_per_node, args, config):
         lovasz_weight=config["loss"]["lovasz"],
     ).cuda(args.gpu)
 
+    # --- Print config
+    print()
+    print(config)
+    sys.stdout.flush()
+
     # --- Sets the learning rate to the initial LR decayed by 10 every 30 epochs
     scheduler = get_scheduler(optim, config, len(train_loader))
 
@@ -384,7 +400,7 @@ def main(args, config):
     # Number of nodes for distributed training'
     args.world_size = 1
     # URL used to set up distributed training
-    args.dist_url = "tcp://127.0.0.1:4444"
+    args.dist_url = f"tcp://127.0.0.1:{np.random.randint(4000, 9999)}"
     # Distributed backend'
     args.dist_backend = "nccl"
     # Distributed processing
@@ -443,16 +459,28 @@ def get_default_parser():
         default="/datasets_local/nuscenes/",
     )
     parser.add_argument(
-        "--log_path", type=str, required=True, help="Path to log folder"
+        "--log_path",
+        type=str,
+        required=True,
+        help="Path to log folder",
     )
     parser.add_argument(
-        "--restart", action="store_true", default=False, help="Restart training"
+        "--restart",
+        action="store_true",
+        default=False,
+        help="Restart training",
     )
     parser.add_argument(
-        "--seed", default=None, type=int, help="Seed for initializing training"
+        "--seed",
+        default=None,
+        type=int,
+        help="Seed for initializing training",
     )
     parser.add_argument(
-        "--gpu", default=None, type=int, help="Set to any number to use gpu 0"
+        "--gpu",
+        default=None,
+        type=int,
+        help="Set to any number to use gpu 0",
     )
     parser.add_argument(
         "--multiprocessing-distributed",
@@ -498,12 +526,10 @@ def get_default_parser():
         default=False,
         help="Linear probing",
     )
-
     return parser
 
 
 if __name__ == "__main__":
-
     parser = get_default_parser()
     args = parser.parse_args()
 
@@ -512,6 +538,7 @@ if __name__ == "__main__":
     config_pretrain = load_model_config(args.config_pretrain)
 
     # Merge config files
+
     # Embeddings
     config["embedding"] = {}
     config["embedding"]["input_feat"] = config_pretrain["point_backbone"][
@@ -522,17 +549,22 @@ if __name__ == "__main__":
         "num_neighbors"
     ]
     config["embedding"]["voxel_size"] = config_pretrain["point_backbone"]["voxel_size"]
+
     # Backbone
     config["waffleiron"]["depth"] = config_pretrain["point_backbone"]["depth"]
-    config["waffleiron"]["num_neighbors"] = config_pretrain["point_backbone"][
-        "num_neighbors"
-    ]
     config["waffleiron"]["dim_proj"] = config_pretrain["point_backbone"]["dim_proj"]
     config["waffleiron"]["nb_channels"] = config_pretrain["point_backbone"][
         "nb_channels"
     ]
     config["waffleiron"]["pretrain_dim"] = config_pretrain["point_backbone"]["nb_class"]
-    config["waffleiron"]["layernorm"] = config_pretrain["point_backbone"]["layernorm"]
+    config["waffleiron"]["gelu"] = config_pretrain["point_backbone"]["gelu"]
+    config["waffleiron"]["images_encoder"] = config_pretrain["image_backbone"][
+        "images_encoder"
+    ]
+    config["waffleiron"]["mlp_classif"] = config_pretrain["point_backbone"][
+        "mlp_classif"
+    ]
+    config["waffleiron"]["hidden"] = config_pretrain["point_backbone"]["hidden"]
 
     # For datasets which need larger FOV for finetuning...
     if config["dataloader"].get("new_grid_shape") is not None:

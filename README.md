@@ -1,8 +1,10 @@
-# ScaLR
+# ScaLR+
 
-PyTorch code and models for ScaLR image-to-lidar distillation method. This work has been accepted to **CVPR24**.
+PyTorch code and models for ScaLR+, an improved version of ScaLR (CVPR24) used in IGLOSS.
 
-**Three Pillars improving Vision Foundation Model Distillation for Lidar**  
+ScaLR+ provides high-quality 3D self-supervised features on lidar data. These features are obtained by distilling (without any annotations) DINOv2 visual features into high-capacity 3D backbones using a mixture of diverse autonomous driving datasets. 
+
+[**Three Pillars improving Vision Foundation Model Distillation for Lidar**](https://arxiv.org/abs/2310.17504)\
 [*Gilles Puy*<sup>1</sup>](https://sites.google.com/site/puygilles/home),
 [*Spyros Gidaris*<sup>1</sup>](https://scholar.google.fr/citations?user=7atfg7EAAAAJ&hl=en),
 [*Alexandre Boulch*<sup>1</sup>](http://boulch.eu),
@@ -11,54 +13,96 @@ PyTorch code and models for ScaLR image-to-lidar distillation method. This work 
 [*Patrick Pérez*<sup>2,*</sup>](https://ptrckprz.github.io/),
 [*Andrei Bursuc*<sup>1</sup>](https://abursuc.github.io/),
 [*Renaud Marlet*<sup>1,3</sup>](http://imagine.enpc.fr/~marletr/)  
-<sup>1</sup>*valeo.ai, France*, <sup>2</sup>*Kyutai, France* and <sup>3</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.\
+<sup>1</sup>*valeo.ai, France*.\
+<sup>2</sup>*Kyutai, France*.\
+<sup>3</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.\
 <sup>*</sup>*Work done at valeo.ai.*
 
-ScaLR provides high-quality 3D self-supervised features on lidar data. These features are obtained by distilling (without any annotations) powerful visual features, such as those obtained from DINOv2, into high-capacity 3D backbones using a mixture of diverse autonomous driving datasets. 
+[**IGLOSS: Image Generation for Lidar Open-vocabulary Semantic Segmentation**](https://arxiv.org/abs/2604.01361)\
+[*Nermin Samet*<sup>1</sup>](https://nerminsamet.github.io/),
+[*Gilles Puy*<sup>1</sup>](https://sites.google.com/site/puygilles/home),
+[*Renaud Marlet*<sup>1,2</sup>](http://imagine.enpc.fr/~marletr/)  
+<sup>1</sup>*valeo.ai, France*.\
+<sup>2</sup>*LIGM, Ecole des Ponts, Univ Gustave Eiffel, CNRS, France*.
 
-[Paper](https://arxiv.org/abs/2310.17504) | [Video](https://youtu.be/yksj5WuJY4I) | [Project page](https://valeoai.github.io/blog/publications/scalr/)
 
-<p align="center">
-  <img src=./illustration.png alt="Correlation properties of distilled 3D features"/>
-Correlation maps with a point located on a car on four different scenes extracted from nuScenes, SemanticKITTI, Pandar64 and PandarGT. The features used to compute these maps are extracted from our ScaLR pretrained backbone pretrained jointly on all four datasets. Color goes from blue to red for low and high values.
-</p>
-
-If you find this code or work useful, please cite the following [paper](https://openaccess.thecvf.com/content/CVPR2024/html/Puy_Three_Pillars_Improving_Vision_Foundation_Model_Distillation_for_Lidar_CVPR_2024_paper.html):
+If you find this code or work useful, please cite the following papers:
 ```
-@inproceedings{puy24scalr,
+@inproceedings{scalr,
   title={Three Pillars improving Vision Foundation Model Distillation for Lidar},
   author={Puy, Gilles and Gidaris, Spyros and Boulch, Alexandre and Sim\'eoni, Oriane and Sautier, Corentin and P\'erez, Patrick and Bursuc, Andrei and Marlet, Renaud},
   booktitle={CVPR},
-  year={2024}
+  year={2024},
+}
+
+@inproceedings{igloss,
+  author = {Nermin Samet and Gilles Puy and Renaud Marlet},
+  title = {IGLOSS: Image Generation for Lidar Open-vocabulary Semantic Segmentation},
+  booktitle = {arXiv},
+  year = {2026},
 }
 ```
 
 ## Overview
 
+- [ScaLR+ vs ScaLR](#scalr-vs-scalr)
 - [Installation](#installation)
 - [Available models](#available-models)
 - [Evaluation](#evaluation)
 - [Training](#training)
 
+## ScaLR+ vs ScaLR
+
+
+### Change of training recipe
+
+The following changes were made in ScaLR+ compared to ScaLR:
+- Use stochastic depth during distillation;
+- Use GeLU instead of ReLU in the WaffleIron backbone;
+- Use a MLP distillation head instead of a linear one;
+- Use higher resolution images during distillation;
+- Distill for more epochs.
+
+The pretrained ScaLR+ backbone is available [here](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-pretrained.tar.gz).
+
+### Improvement in linear probing
+
+|  Dataset      | ScaLR (mIoU) | ScaLR+ (mIoU) |
+| ------------- |:------------:|:-------------:|
+| nuScenes      |    67.8 %    |  [**70.4 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-nuscenes.tar.gz)   |
+| SemanticKITTI |    55.8 %    |  [**61.0 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-kitti.tar.gz)   |
+| Pandar 64     |    37.9 %    |  [**43.5 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-panda64.tar.gz)   |
+| Pandar GT     |    34.5 %    |  [**40.7 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-pandagt.tar.gz)   |
+
+### Improvement in finetuning
+
+|  Dataset      | Split | ScaLR (mIoU) | ScaLR+ (mIoU) |
+| ------------- | -----:|:------------:|:-------------:|
+| nuScenes      | 1 %   |    50.7 %    |  [**54.1 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-nuscenes-1p.tar.gz)   |
+|               | 10 %  |    69.2 %    |  [**70.7 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-nuscenes-10p.tar.gz)   |
+|               | 100 % |  **78.4 %**  |  [**78.4 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-nuscenes-100p.tar.gz)   |
+| SemanticKITTI | 1 %   |    55.8 %    |  [**57.4 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-kitti-1p.tar.gz)   |
+|               | 100 % |  **65.8 %**  |    [65.2 %](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-kitti-100p.tar.gz)     |
+| Pandar 64     | 100 % |    48.3 %    |  [**50.7 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-panda64-100p.tar.gz)   |
+| Pandar GT     | 100 % |    41.1 %    |  [**44.0 %**](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-pandagt-100p.tar.gz)   |
+
+
 ## Installation
 
 ### Environment
 
-The results were obtained with the environment below. The code has been tested and the results reproduced succesfully with pytorch>=2.2 (until 2.5 at least).
 ```bash
-conda create -n scalr
-conda activate scalr
-conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
-pip install pyaml tqdm tensorboard nuscenes-devkit pandas transforms3d
-git clone https://github.com/valeoai/WaffleIron
-pip install -e WaffleIron/
-git clone https://github.com/valeoai/ScaLR
+conda create -n scalr_plus
+conda activate scalr_plus
+conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 pytorch-cuda=12.4 -c pytorch
+pip install pyaml==25.7.0 tqdm==4.67.1 scipy==1.15.3 tensorboard==2.20.0 nuscenes-devkit==1.2.0 pandas==2.3.1 transforms3d==0.4.2 numpy==1.26.0 timm==1.0.26
+git clone -b scalr_plus https://github.com/valeoai/ScaLR
 cd ScaLR
 ```
 
-Download and untar the following [file](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/info_datasets.tar.gz):
+Download and untar the following [file](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/info_datasets.tar.gz):
 ```bash
-wget https://github.com/valeoai/ScaLR/releases/download/v0.1.0/info_datasets.tar.gz
+wget https://github.com/valeoai/ScaLR/releases/download/v0.2.0/info_datasets.tar.gz
 tar -xvzf info_datasets.tar.gz
 rm info_datasets.tar.gz
 ```
@@ -95,43 +139,55 @@ Please download them under the same root directory. The folder structure must be
 
 We provide the following model, pretrained by distillation and without using any annotations. It can be used, e.g., for unsupervised tasks.
 
-| WaffleIron | Distilled from  | Training datasets                           | Link                                                                                                                                 |
-|------------|-----------------|---------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| WI-48-768  | DINOv2 ViT-L/14 | nuScenes & SemKITTI & Pandar 64 & Pandar GT | [backbone + dist. head](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-pretrained.tar.gz) |
+| WaffleIron | Distilled from  | Training datasets                           | Link |
+|------------|-----------------|---------------------------------------------|------|
+| WI-48-768  | DINOv2 ViT-L/14 | nuScenes & SemKITTI & Pandar 64 & Pandar GT | [backbone + dist. head](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-pretrained.tar.gz) |
 
 
 ### Model adapted to downstream tasks
 
 #### Linear probing
 
-We provide here models obtained after *linear probing* the above pretrained [backbone](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-pretrained.tar.gz).
+We provide here models obtained after *linear probing* the ScaLR+ pretrained [backbone](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-pretrained.tar.gz).
 
-| WaffleIron | Distilled from  | Linearly probed on | mIoU  | Link                                                                                                                                               |
-|------------|-----------------|--------------------|:-----:|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| WI-48-768  | DINOv2 ViT-L/14 | nuScenes           | 67.8% | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-nuscenes.tar.gz) |
-| WI-48-768  | DINOv2 ViT-L/14 | SemanticKITTI      | 55.8% | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-kitti.tar.gz)    |
-| WI-48-768  | DINOv2 ViT-L/14 | Pandar 64          | 37.9% | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-panda64.tar.gz)  |
-| WI-48-768  | DINOv2 ViT-L/14 | Pandar GT          | 34.5% | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-pandagt.tar.gz)  |
-
-#### Finetuning
-
-We provide here models obtained after finetuning the above pretrained [backbone](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-pretrained.tar.gz) on the full datasets of nuScenes, SemanticKITTI, Pandar 64 or Pandar GT.
-
-| WaffleIron | Distilled from  | Finetuned on  | mIoU  | Link                                                                                                                                  |
-|------------|-----------------|---------------|:-----:|---------------------------------------------------------------------------------------------------------------------------------------|
-| WI-48-768  | DINOv2 ViT-L/14 | nuScenes      | 78.4% | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-finetuning-nuscenes-100p.tar.gz) |
-| WI-48-768  | DINOv2 ViT-L/14 | SemanticKITTI | 65.8% | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-finetuning-kitti-100p.tar.gz)    |
-| WI-48-768  | DINOv2 ViT-L/14 | Pandar 64     | 48.3% | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-finetuning-panda64-100p.tar.gz)  |
-| WI-48-768  | DINOv2 ViT-L/14 | Pandar GT     | 41.1% | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-finetuning-pandagt-100p.tar.gz)  |
+| WaffleIron | Distilled from  | Linearly probed on |  mIoU  | Link |
+| ---------- | --------------- | ------------------ |:------:|------|
+| WI-48-768  | DINOv2 ViT-L/14 | nuScenes           | 70.4 % | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-nuscenes.tar.gz) |
+| WI-48-768  | DINOv2 ViT-L/14 | SemanticKITTI      | 61.0 % | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-kitti.tar.gz)    |
+| WI-48-768  | DINOv2 ViT-L/14 | Pandar 64          | 43.5 % | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-panda64.tar.gz)  |
+| WI-48-768  | DINOv2 ViT-L/14 | Pandar GT          | 40.7 % | [backbone + class. head](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-pandagt.tar.gz)  |
 
 
-Finally, we also provide the WaffleIron WI-48-768 trained on nuscenes **without** pretraining [here](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-no_pretraining-finetuning-nuscenes-100p.tar.gz). It reaches a mIoU of 78.7%.
+#### Finetuning on complete datasets
+
+We provide here models obtained after finetuning the ScaLR+ pretrained [backbone](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-pretrained.tar.gz) on the full datasets of nuScenes, SemanticKITTI, Pandar 64 or Pandar GT.
+
+| WaffleIron | Distilled from  | Finetuned on  | mIoU  | Link |
+|------------|-----------------|---------------|:-----:|------|
+| WI-48-768  | DINOv2 ViT-L/14 | nuScenes      | 78.4 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-nuscenes-100p.tar.gz) |
+| WI-48-768  | DINOv2 ViT-L/14 | SemanticKITTI | 65.2 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-kitti-100p.tar.gz)    |
+| WI-48-768  | DINOv2 ViT-L/14 | Pandar 64     | 50.7 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-panda64-100p.tar.gz)  |
+| WI-48-768  | DINOv2 ViT-L/14 | Pandar GT     | 44.0 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-pandagt-100p.tar.gz)  |
+
+
+#### Few-shot learning
+
+We provide here models obtained after finetuning the ScaLR+ pretrained [backbone](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-pretrained.tar.gz) on subsets of nuScenes or SemanticKITTI.
+
+| WaffleIron | Distilled from  | Finetuned on      | mIoU  | Link |
+|------------|-----------------|-------------------|:-----:|-----|
+| WI-48-768  | DINOv2 ViT-L/14 | 1 % nuScenes      | 54.1 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-nuscenes-1p.tar.gz)  |
+| WI-48-768  | DINOv2 ViT-L/14 | 10 % nuScenes     | 70.7 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-nuscenes-10p.tar.gz) |
+| WI-48-768  | DINOv2 ViT-L/14 | 1 % SemanticKITTI | 57.4 % | [Download](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-finetuning-kitti-1p.tar.gz)     |
+
+
+#### Downloading the models
 
 For any of the model above, please download the associated file and untar it in the working directory `ScaLR/`. For example:
-```
-wget https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-nuscenes.tar.gz
-tar -xvzf WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-nuscenes.tar.gz
-rm WI_768-DINOv2_ViT_L_14-NS_KI_PD-linear_probing-nuscenes.tar.gz
+```bash
+wget https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-linear_probing-nuscenes.tar.gz
+tar -xvzf WI_768-ScaLR_plus-linear_probing-nuscenes.tar.gz
+rm WI_768-ScaLR_plus-linear_probing-nuscenes.tar.gz
 ```
 
 ## Evaluation
@@ -142,58 +198,108 @@ We explain here how to evaluate our models.
 
 First, please set the following environment variable so that it points to the root directory where you stored your datasets.
 ```bash
-export PATH_TO_DATASETS=/path/to/datasets/
+PATH_TO_DATASETS=/path/to/datasets/
 ```
 
 Then, please use one of the following command line to set the evaluation dataset MACROs for `NuScenes`, `SemanticKITTI`, `Pandar 64` or `Pandar GT`:
 ```bash
 # NuScenes
-export DATASET_NAME=nuscenes; export DATASET_PATH=nuscenes;
+DATASET_NAME=nuscenes; DATASET_PATH=nuscenes;
 ```
 ```bash
 # SemanticKITTI
-export DATASET_NAME=semantic_kitti; export DATASET_PATH=semantic_kitti;
+DATASET_NAME=semantic_kitti; DATASET_PATH=semantic_kitti;
 ```
 ```bash
 # Pandar 64
-export DATASET_NAME=panda64; export DATASET_PATH=pandaset;
+DATASET_NAME=panda64; DATASET_PATH=pandaset;
 ```
 ```bash
 # Pandar GT
-export DATASET_NAME=pandagt; export DATASET_PATH=pandaset;
+DATASET_NAME=pandagt; DATASET_PATH=pandaset;
 ```
 
 ### Linear probing evaluation
 
 In order to evaluate the linear probing performance of our models, please use the following command:
-```
+```bash
 python finetune.py \
 --dataset $DATASET_NAME \
 --path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
 --config_downstream configs/downstream/$DATASET_NAME/WI_768_linprob.yaml \
---log_path logs/linear_probing/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/ \
---multiprocessing-distributed \
---fp16 \
+--log_path logs/linear_probing/WI_768-ScaLR_plus/$DATASET_NAME/ \
 --linprob \
+--gpu 0 \
 --restart \
 --eval
 ```
 
 If needed, for evaluation, you can reduce the batch size and number of workers in `configs/downstream/$DATASET_PATH/WI_768_linprob.yaml`.
 
+
 ### Finetuning evaluation
 
 In order to evaluate the performance of our provided finetuned models, please use the following command:
-```
+```bash
 python finetune.py \
 --dataset $DATASET_NAME \
 --path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
 --config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_100p.yaml \
---log_path logs/finetuning/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/100p/ \
---multiprocessing-distributed \
---fp16 \
+--log_path logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/100p/ \
+--gpu 0 \
+--restart \
+--eval
+```
+
+
+### Few-shot learning evaluation
+
+In order to evaluate the performance of our provided models finetuned on subsets of nuScenes or SemanticKITTI, please use the following commands:
+
+```bash
+# 1 % of nuScenes
+SPLIT=1p
+DATASET_NAME=nuscenes
+
+python finetune.py \
+--dataset ${DATASET_NAME}_${SPLIT} \
+--path_dataset $PATH_TO_DATASETS/$DATASET_NAME/ \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
+--config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_$SPLIT.yaml \
+--log_path logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/$SPLIT/ \
+--gpu 0 \
+--restart \
+--eval
+
+
+# 10 % of nuScenes
+SPLIT=10p
+DATASET_NAME=nuscenes
+
+python finetune.py \
+--dataset ${DATASET_NAME}_${SPLIT} \
+--path_dataset $PATH_TO_DATASETS/$DATASET_NAME/ \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
+--config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_$SPLIT.yaml \
+--log_path logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/$SPLIT/ \
+--gpu 0 \
+--restart \
+--eval
+
+
+# 1 % of SemanticKITTI
+SPLIT=1p
+DATASET_NAME=semantic_kitti 
+
+python finetune.py \
+--dataset ${DATASET_NAME}_${SPLIT} \
+--path_dataset $PATH_TO_DATASETS/$DATASET_NAME/ \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
+--config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_$SPLIT.yaml \
+--log_path logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/$SPLIT/ \
+--gpu 0 \
 --restart \
 --eval
 ```
@@ -203,27 +309,18 @@ python finetune.py \
 
 ### ScaLR pretraining by distillation
 
-Our best results were obtained with DINOv2 ViT-L/14. In order to distill this model, please download it as follows:
-```
-mkdir dinov2_weights
-cd dinov2_weights
-wget https://dl.fbaipublicfiles.com/dinov2/dinov2_vitl14/dinov2_vitl14_pretrain.pth
-cd ..
-```
-
-Then please set the following environment variable so that it points to the root directory where you stored your datasets.
-```
-export PATH_TO_DATASETS=/path/to/datasets/
+Please set the following environment variable so that it points to the root directory where you stored your datasets.
+```bash
+PATH_TO_DATASETS=/path/to/datasets/
 ```
 
 The distillation can then be launched as follows.
-```
+```bash
 python distill.py \
 --dataset merged_datasets \
 --path_dataset $PATH_TO_DATASETS/ \
---log_path my_own_logs/pretraining/WI_768-DINOv2_ViT_L_14-NS_KI_PD/ \
---config configs/pretrain/WI_768_pretrain.yaml \
---fp16 \
+--log_path my_own_logs/pretraining/WI_768-ScaLR_plus/ \
+--config configs/pretrain/WI_768-ScaLR_plus.yaml \
 --multiprocessing-distributed
 ```
 The new distilled model will be saved in the folder `./my_own_logs/`
@@ -232,93 +329,93 @@ The new distilled model will be saved in the folder `./my_own_logs/`
 
 We now provide the command lines that can be used for linear probing or finetuning a distilled model. 
 
-**In the examples below, we start from our distilled model available** [here](https://github.com/valeoai/ScaLR/releases/download/v0.1.0/WI_768-DINOv2_ViT_L_14-NS_KI_PD-pretrained.tar.gz).
+**In the examples below, we start from our distilled model available** [here](https://github.com/valeoai/ScaLR/releases/download/v0.2.0/WI_768-ScaLR_plus-pretrained.tar.gz).
 
 For any of the experiments below, you must specify the dataset used for downstream linear probing or finetuning by setting the variable `DATASET_NAME` and `DATASET_PATH` (see this [section](#dataset-setups)).
 
 #### Linear probing
 
-In order to re-run the linear probing experiment, please use the following command line:
-```
+Use the following command:
+```bash
 python finetune.py \
 --dataset $DATASET_NAME \
 --path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
 --config_downstream configs/downstream/$DATASET_NAME/WI_768_linprob.yaml \
---pretrained_ckpt logs/pretraining/WI_768-DINOv2_ViT_L_14-NS_KI_PD/model.pth \
---log_path my_own_logs/linear_probing/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/ \
+--pretrained_ckpt logs/pretrain/WI_768-ScaLR_plus/ckpt_last.pth \
+--log_path my_own_logs/linear_probing/WI_768-ScaLR_plus/$DATASET_NAME/ \
 --multiprocessing-distributed \
---fp16 \
 --linprob
 ```
 The model model will be saved in the folder `./my_own_logs/`.
 
+You can relaunch the evaluation on the validation set by adding `--restart --eval` in the above command.
+
 #### Finetuning on the complete training sets
 
-To re-run the finetuning experiment on the full training set of `$DATASET_NAME`, please use the following script:
-```
+Use the following command:
+```bash
 python finetune.py \
 --dataset $DATASET_NAME \
 --path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
 --config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_100p.yaml \
---pretrained_ckpt logs/pretraining/WI_768-DINOv2_ViT_L_14-NS_KI_PD/model.pth \
---log_path my_own_logs/finetuning/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/100p/ \
---multiprocessing-distributed \
---fp16
+--pretrained_ckpt logs/pretrain/WI_768-ScaLR_plus/ckpt_last.pth \
+--log_path my_own_logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/100p/ \
+--multiprocessing-distributed
 ```
 The model model will be saved in the folder `./my_own_logs/`.
+
+You can relaunch the evaluation on the validation set by adding `--restart --eval` in the above command.
+
 
 #### Finetuning on the partial training sets of nuScenes or SemanticKITTI
 
 We now provide the scripts to finetune the models with different percentage of the training datasets.
 
 For finetuning on the split of **1% of nuScenes**, please use:
-```
-export DATASET_NAME=nuscenes_1p
-export DATASET_PATH=nuscenes
+```bash
+SPLIT=1p
+DATASET_NAME=nuscenes
 
 python finetune.py \
---dataset $DATASET_NAME \
---path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
+--dataset ${DATASET_NAME}_${SPLIT} \
+--path_dataset $PATH_TO_DATASETS/$DATASET_NAME/ \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
 --config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_1p.yaml \
---pretrained_ckpt logs/pretraining/WI_768-DINOv2_ViT_L_14-NS_KI_PD/model.pth \
---log_path my_own_logs/finetuning/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/1p/ \
---multiprocessing-distributed \
---fp16
+--pretrained_ckpt logs/pretrain/WI_768-ScaLR_plus/ckpt_last.pth \
+--log_path my_own_logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/$SPLIT/ \
+--multiprocessing-distributed
 ```
 
 For finetuning on the split of **10% of nuScenes**, please use:
-```
-export DATASET_NAME=nuscenes_10p
-export DATASET_PATH=nuscenes
+```bash
+SPLIT=10p
+DATASET_NAME=nuscenes
 
 python finetune.py \
---dataset $DATASET_NAME \
---path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
---config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_10p.yaml \
---pretrained_ckpt logs/pretraining/WI_768-DINOv2_ViT_L_14-NS_KI_PD/model.pth \
---log_path my_own_logs/finetuning/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/10p/ \
---multiprocessing-distributed \
---fp16
+--dataset ${DATASET_NAME}_${SPLIT} \
+--path_dataset $PATH_TO_DATASETS/$DATASET_NAME/ \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
+--config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_1p.yaml \
+--pretrained_ckpt logs/pretrain/WI_768-ScaLR_plus/ckpt_last.pth \
+--log_path my_own_logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/$SPLIT/ \
+--multiprocessing-distributed
 ```
 
 For finetuning on the split of **1% of SemanticKITTI**, please use:
-```
-export DATASET_NAME=semantic_kitti_1p
-export DATASET_PATH=semantic_kitti
+```bash
+SPLIT=1p
+DATASET_NAME=semantic_kitti
 
 python finetune.py \
---dataset $DATASET_NAME \
---path_dataset $PATH_TO_DATASETS/$DATASET_PATH/ \
---config_pretrain configs/pretrain/WI_768_pretrain.yaml \
+--dataset ${DATASET_NAME}_${SPLIT} \
+--path_dataset $PATH_TO_DATASETS/$DATASET_NAME/ \
+--config_pretrain configs/pretrain/WI_768-ScaLR_plus.yaml \
 --config_downstream configs/downstream/$DATASET_NAME/WI_768_finetune_1p.yaml \
---pretrained_ckpt logs/pretraining/WI_768-DINOv2_ViT_L_14-NS_KI_PD/model.pth \
---log_path my_own_logs/finetuning/WI_768-DINOv2_ViT_L_14-NS_KI_PD/$DATASET_NAME/1p/ \
---multiprocessing-distributed \
---fp16
+--pretrained_ckpt logs/pretrain/WI_768-ScaLR_plus/ckpt_last.pth \
+--log_path my_own_logs/finetuning/WI_768-ScaLR_plus/$DATASET_NAME/$SPLIT/ \
+--multiprocessing-distributed
 ```
 
 
@@ -332,20 +429,9 @@ We thank the authors of
   year = {2018},
 }
 ```
-for making their [implementation](https://github.com/bermanmaxim/LovaszSoftmax) of the Lovász loss publicly available, and the authors of
-```
-@article{oquab2024dinov,
-  title={{DINO}v2: Learning Robust Visual Features without Supervision},
-  author={Maxime Oquab and Timoth{\'e}e Darcet and Th{\'e}o Moutakanni and Huy V. Vo and Marc Szafraniec and Vasil Khalidov and Pierre Fernandez and Daniel HAZIZA and Francisco Massa and Alaaeldin El-Nouby and Mido Assran and Nicolas Ballas and Wojciech Galuba and Russell Howes and Po-Yao Huang and Shang-Wen Li and Ishan Misra and Michael Rabbat and Vasu Sharma and Gabriel Synnaeve and Hu Xu and Herve Jegou and Julien Mairal and Patrick Labatut and Armand Joulin and Piotr Bojanowski},
-  journal={TMLR},
-  year={2024},
-}
-```
-for making their [code](https://github.com/facebookresearch/dinov2) and model publicly available.
+for making their [implementation](https://github.com/bermanmaxim/LovaszSoftmax) of the Lovász loss publicly available
 
 ## License
-ScaLR is released under the [Apache 2.0 license](./LICENSE).
+ScaLR+ is released under the [Apache 2.0 license](./LICENSE).
 
 The implementation of the Lovász loss in `utils/lovasz.py` is released under [MIT Licence](https://github.com/bermanmaxim/LovaszSoftmax/blob/master/LICENSE).
-
-The implementation of DINOv2 (`models/dinov2/` and `models/dinov2_vision_transformer.py`) is released under the [Apache 2.0 license](https://github.com/facebookresearch/dinov2/blob/main/LICENSE).

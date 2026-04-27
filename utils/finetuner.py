@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import sys
-import torch
 import warnings
+
 import numpy as np
-from tqdm import tqdm
+import torch
 from torch.cuda.amp import GradScaler
 from torch.utils.tensorboard import SummaryWriter
-from utils.metrics import overall_accuracy, fast_hist, per_class_iu, per_class_accuracy
+from tqdm import tqdm
+
+from utils.metrics import fast_hist, overall_accuracy, per_class_accuracy, per_class_iu
 
 
 class Finetuner:
@@ -37,7 +38,7 @@ class Finetuner:
         path,
         rank,
         world_size,
-        fp16=True,
+        fp16=False,
         class_names=None,
         tensorboard=True,
         linear_probing=False,
@@ -47,6 +48,7 @@ class Finetuner:
         self.optim = optim
         self.fp16 = fp16
         self.scaler = GradScaler() if fp16 else None
+        self.dtype = torch.float16 if fp16 else torch.bfloat16
         self.scheduler = scheduler
         self.linear_probing = linear_probing
 
@@ -124,13 +126,15 @@ class Finetuner:
     def one_epoch(self, training=True):
 
         # Train or eval mode only on classif layer
-
         if training:
             if self.linear_probing:
                 # Do not update statistics in backbone...
                 self.net.eval()
                 # ... except in final classification layer.
-                self.net.module.classif.train()
+                try:
+                    self.net.module.classif.train()
+                except AttributeError:
+                    self.net.classif.train()
             else:
                 self.net.train()
             loader = self.loader_train
@@ -159,7 +163,6 @@ class Finetuner:
             bar_format = "{desc:<5.5}{percentage:3.0f}%|{bar:50}{r_bar}"
             loader = tqdm(loader, bar_format=bar_format)
         for it, batch in enumerate(loader):
-
             # Network inputs
             feat = batch["feat"].cuda(self.rank, non_blocking=True)
             labels = batch["labels_orig"].cuda(self.rank, non_blocking=True)
@@ -172,7 +175,7 @@ class Finetuner:
             net_inputs = (feat, cell_ind, occupied_cell, neighbors_emb)
 
             # Get prediction and loss
-            with torch.autocast("cuda", enabled=self.fp16):
+            with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                 # Logits
                 if training:
                     out = net(*net_inputs)
@@ -187,7 +190,7 @@ class Finetuner:
                 out = torch.cat(out_upsample, dim=0)
                 # Loss
                 loss = self.loss(out, labels)
-            running_loss += loss.detach()
+            running_loss += loss.detach().float()
 
             # Confusion matrix
             with torch.no_grad():
@@ -199,12 +202,11 @@ class Finetuner:
                 )
 
             # Logs
+            if self.train_sampler is not None:
+                out = self.gather_scores([running_loss, confusion_matrix])
+            else:
+                out = [running_loss.cpu(), confusion_matrix.cpu()]
             if it % print_freq == print_freq - 1 or it == len(loader) - 1:
-                # Gather scores
-                if self.train_sampler is not None:
-                    out = self.gather_scores([running_loss, confusion_matrix])
-                else:
-                    out = [running_loss.cpu(), confusion_matrix.cpu()]
                 if self.rank == 0 or self.rank is None:
                     # Compute scores
                     oAcc = 100 * overall_accuracy(out[1])

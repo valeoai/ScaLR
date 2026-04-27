@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import torch
 import numpy as np
-from .lovasz import lovasz_softmax_flat
+import torch
+from torch.nn import CrossEntropyLoss, Module
 from torch.nn.functional import softmax
-from torch.nn import Module, CrossEntropyLoss
+
+from .lovasz import lovasz_softmax_flat
 
 
 def fast_hist(pred, label, n):
@@ -48,16 +48,21 @@ class SemSegLoss(Module):
         self.ignore_index = ignore_index
         self.lovasz_weight = lovasz_weight
         self.ce = CrossEntropyLoss(ignore_index=ignore_index)
+        self.lovasz_fn = lovasz_softmax_flat
 
     def __call__(self, pred, true):
+
+        where = true != self.ignore_index
+        pred, true = pred[where], true[where]
+
+        assert pred.ndim == 2
+        true = true.long()
         loss = self.ce(pred, true)
 
         if self.lovasz_weight > 0:
-            where = true != self.ignore_index
-            if where.sum() > 0:
-                loss += self.lovasz_weight * lovasz_softmax_flat(
-                    softmax(pred[where], dim=1),
-                    true[where],
-                )
+            loss += self.lovasz_weight * self.lovasz_fn(
+                softmax(pred, dim=1),
+                true,
+            )
 
         return loss

@@ -10,20 +10,25 @@ point_backbone:
   num_neighbors: 16
   voxel_size: 0.1
   max_points: 20000
-  layernorm: True
+  drop_path: 0.2
+  mlp_classif: True
+  gelu: True
+  hidden: 2048
+  checkpointing: True
 
 image_backbone:
-  images_encoder: "dinov2_vit_large_p14"
+  images_encoder: "timm_vit_large_patch14_dinov2.lvd142m"
   feat: "x_pre_norm"
-  im_size: [224, 448]
+  im_size: [448, 896]
  
 dataloader:
   batch_size: 8
-  num_workers: 128
-  num_epochs: 25
+  num_workers: 16
+  num_epochs: 65
 
 optim:
   lr: 0.002
   weight_decay: 0.03
-  iter_warmup: 3500
-  min_lr: 0.00001
+  epoch_warmup: 1
+  cooldown_start: 63
+  timescale: 0.45

@@ -5,11 +5,10 @@ Code downloaded from:
 https://github.com/edwardzhou130/PolarSeg/blob/master/network/lovasz_losses.py
 """
 
-
-import torch
-from torch.autograd import Variable
-import torch.nn.functional as F
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torch.autograd import Variable
 
 try:
     from itertools import ifilterfalse
@@ -79,7 +78,7 @@ def iou(preds, labels, C, EMPTY=1.0, ignore=None, per_image=False):
 # --------------------------- BINARY LOSSES ---------------------------
 
 
-def lovasz_hinge(logits, labels, per_image=True, ignore=None):
+def lovasz_hinge(logits, labels, per_image=False, ignore=None):
     r"""
     Binary Lovasz hinge loss
       logits: [B, H, W] Variable, logits at each pixel (between -\infty and +\infty)
@@ -173,7 +172,7 @@ def lovasz_softmax(probas, labels, classes="present", per_image=False, ignore=No
         loss = mean(
             lovasz_softmax_flat(
                 *flatten_probas(prob.unsqueeze(0), lab.unsqueeze(0), ignore),
-                classes=classes
+                classes=classes,
             )
             for prob, lab in zip(probas, labels)
         )

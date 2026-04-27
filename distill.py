@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import argparse
 import os
-import yaml
-import torch
 import random
 import warnings
-import argparse
+
 import numpy as np
-from waffleiron import Segmenter
-from utils.scheduler import WarmupCosine
+import torch
+import yaml
 from datasets import LIST_DATASETS_DISTILL, CollateDistillation
-from utils.distiller import Distiller
 from models.image_teacher import ImageTeacher
+from utils.distiller import Distiller
+from utils.scheduler import LinWarmup_ReciprocalSqrt_LinCoolDown
+from waffleiron import Segmenter
 
 
 def load_model_config(file):
@@ -91,10 +91,11 @@ def get_optimizer(parameters, config):
 def get_scheduler(optimizer, config, len_train_loader):
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
-        WarmupCosine(
-            config["optim"]["iter_warmup"],
-            config["dataloader"]["num_epochs"] * len_train_loader,
-            config["optim"]["min_lr"] / config["optim"]["lr"],
+        LinWarmup_ReciprocalSqrt_LinCoolDown(
+            warmup_end=config["optim"]["epoch_warmup"] * len_train_loader,
+            cooldown_start=config["optim"]["cooldown_start"] * len_train_loader,
+            timescale=config["optim"]["timescale"] * len_train_loader,
+            max_it=config["dataloader"]["num_epochs"] * len_train_loader,
         ),
     )
     return scheduler
@@ -119,10 +120,14 @@ def distributed_training(gpu, ngpus_per_node, args, config):
     model_point = Segmenter(
         input_channels=config["point_backbone"]["size_input"],
         feat_channels=config["point_backbone"]["nb_channels"],
+        nb_class=config["point_backbone"]["nb_class"],
         depth=config["point_backbone"]["depth"],
         grid_shape=config["point_backbone"]["grid_shape"],
-        nb_class=config["point_backbone"]["nb_class"],
-        layer_norm=config["point_backbone"]["layernorm"],
+        drop_path_prob=config["point_backbone"]["drop_path"],
+        gelu=config["point_backbone"]["gelu"],
+        mlp_classif=config["point_backbone"]["mlp_classif"],
+        mlp_hidden_size=config["point_backbone"]["hidden"],
+        checkpointing=config["point_backbone"]["checkpointing"],
     )
     model_image = ImageTeacher(config)
 
@@ -145,7 +150,9 @@ def distributed_training(gpu, ngpus_per_node, args, config):
         )
         model_point = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model_point)
         model_point = torch.nn.parallel.DistributedDataParallel(
-            model_point, device_ids=[args.gpu]
+            model_point,
+            device_ids=[args.gpu],
+            find_unused_parameters=False,
         )
         # DistributedDataParallel is not needed when a module doesn't have any parameter that requires a gradient
         # So we do not apply DistributedDataParallel to model_image
@@ -190,8 +197,8 @@ def distributed_training(gpu, ngpus_per_node, args, config):
         args.fp16,
         tensorboard=True,
     )
-    if args.restart:
-        mng.load_state()
+    if args.restart or args.restart_from != "":
+        mng.load_state(args.restart_from)
     mng.train()
 
 
@@ -205,7 +212,7 @@ def main(args, config):
     # Number of nodes for distributed training'
     args.world_size = 1
     # URL used to set up distributed training
-    args.dist_url = "tcp://127.0.0.1:4444"
+    args.dist_url = f"tcp://127.0.0.1:{np.random.randint(4000, 9999)}"
     # Distributed backend'
     args.dist_backend = "nccl"
     # Distributed processing
@@ -272,10 +279,22 @@ def get_default_parser():
         "--restart", action="store_true", default=False, help="Restart training"
     )
     parser.add_argument(
-        "--seed", default=None, type=int, help="Seed for initializing training"
+        "--restart_from",
+        type=str,
+        default="",
+        help="Specify checkpoint to restart from",
     )
     parser.add_argument(
-        "--gpu", default=None, type=int, help="Set to any number to use gpu 0"
+        "--seed",
+        default=None,
+        type=int,
+        help="Seed for initializing training",
+    )
+    parser.add_argument(
+        "--gpu",
+        default=None,
+        type=int,
+        help="Set to any number to use gpu 0",
     )
     parser.add_argument(
         "--multiprocessing-distributed",
@@ -291,17 +310,29 @@ def get_default_parser():
         default=False,
         help="Enable autocast for mix precision training",
     )
-
+    parser.add_argument("--lr", default=None, type=float, help="Learning rate")
+    parser.add_argument("--wd", required=None, type=float, help="Weight decay")
     return parser
 
 
 if __name__ == "__main__":
-
     parser = get_default_parser()
     args = parser.parse_args()
 
     # Load config files
     config = load_model_config(args.config)
+
+    # Overwriting parameters
+    if args.lr is not None:
+        warnings.warn(
+            f"Changing lr from {config['optim']['lr']} to {args.lr} via arguments."
+        )
+        config["optim"]["lr"] = args.lr
+    if args.wd is not None:
+        warnings.warn(
+            f"Changing wd from {config['optim']['weight_decay']} to {args.wd} via arguments."
+        )
+        config["optim"]["weight_decay"] = args.wd
 
     # Launch training
     main(args, config)

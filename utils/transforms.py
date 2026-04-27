@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import numpy as np
+import torch
 
 
 class Compose:
@@ -154,9 +154,9 @@ class Crop(Transformation):
         self.eps = eps
         assert len(fov[0]) == len(fov[1]), "Min and Max FOV must have the same length."
         for i, (min, max) in enumerate(zip(*fov)):
-            assert (
-                min < max
-            ), f"Field of view: min ({min}) < max ({max}) is expected on dimension {i}."
+            assert min < max, (
+                f"Field of view: min ({min}) < max ({max}) is expected on dimension {i}."
+            )
 
     def __call__(self, pcloud, labels, return_mask=False):
         pc, labels = super().__call__(pcloud, labels)

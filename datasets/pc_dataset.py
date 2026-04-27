@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import numpy as np
+import torch
 import utils.transforms as tr
-from torch.utils.data import Dataset
 from scipy.spatial import cKDTree as KDTree
+from torch.utils.data import Dataset
 
 
 class PCDataset(Dataset):
@@ -36,6 +36,7 @@ class PCDataset(Dataset):
             (1.0, 1.0, 1.0),
         ),
         num_neighbors=16,
+        force_upsample=False,
     ):
         super().__init__()
 
@@ -57,13 +58,13 @@ class PCDataset(Dataset):
         )
 
         # Field of view
-        assert len(fov_xyz[0]) == len(
-            fov_xyz[1]
-        ), "Min and Max FOV must have the same length."
+        assert len(fov_xyz[0]) == len(fov_xyz[1]), (
+            "Min and Max FOV must have the same length."
+        )
         for i, (min, max) in enumerate(zip(*fov_xyz)):
-            assert (
-                min < max
-            ), f"Field of view: min ({min}) < max ({max}) is expected on dimension {i}."
+            assert min < max, (
+                f"Field of view: min ({min}) < max ({max}) is expected on dimension {i}."
+            )
         self.fov_xyz = np.concatenate([np.array(f)[None] for f in fov_xyz], axis=0)
         self.crop_to_fov = tr.Crop(dims=(0, 1, 2), fov=fov_xyz)
 
@@ -81,6 +82,9 @@ class PCDataset(Dataset):
         if train_augmentations is not None:
             assert self.phase in ["train", "trainval"]
         self.train_augmentations = train_augmentations
+
+        #
+        self.force_upsample = force_upsample
 
     def get_occupied_2d_cells(self, pc):
         """Return mapping between 3D point and corresponding 2D cell"""
@@ -156,16 +160,18 @@ class PCDataset(Dataset):
         # Get neighbors for point embedding layer providing tokens to waffleiron backbone
         kdtree = KDTree(pc[:, :3])
         assert pc.shape[0] > self.num_neighbors
-        dist, neighbors_emb = kdtree.query(pc[:, :3], k=self.num_neighbors + 1)
+        _, neighbors_emb = kdtree.query(pc[:, :3], k=self.num_neighbors + 1)
 
         # Nearest neighbor interpolation to undo cropping & voxelisation at validation time
-        if self.phase in ["train", "trainval"]:
+        if self.force_upsample:
+            _, upsample = kdtree.query(pc_orig[:, :3], k=1)
+        elif self.phase in ["train", "trainval"]:
             upsample = np.arange(pc.shape[0])
         else:
             _, upsample = kdtree.query(pc_orig[:, :3], k=1)
 
         # Output to return
-        out = (
+        out = [
             # Point features
             pc[:, 3:].T[None],
             # Point labels of original entire point cloud
@@ -178,7 +184,7 @@ class PCDataset(Dataset):
             upsample,
             # Filename of original point cloud
             filename,
-        )
+        ]
 
         return out
 
@@ -204,7 +210,9 @@ def zero_pad(feat, neighbors_emb, cell_ind, Nmax):
         )
         # ... and at the same time mark zero-padded points as unoccupied
         occupied_cells[:, N:] = 0
-    return feat, neighbors_emb, cell_ind, occupied_cells
+
+    out = [feat, neighbors_emb, cell_ind, occupied_cells]
+    return tuple(out)
 
 
 class Collate:

@@ -1,12 +1,13 @@
 waffleiron:
   drop_path: 0.0
+  checkpointing: False
 
 classif:
   nb_class: 17  # Number of classes on pandaset (after removing the ignore class)
 
 dataloader:
   batch_size: 8
-  num_workers: 128
+  num_workers: 16
   max_points: 20000
   new_grid_shape: [[512, 512], [512, 32], [512, 32]]
   new_fov: [[-128, -128, -8], [128, 128, 8]]  
@@ -28,6 +29,6 @@ optim:
   layer_decay: null
 
 scheduler:
-  min_lr: 0.00001
+  min_lr: 0.0
   max_epoch: 50
   epoch_warmup: 2

@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,32 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .pc_dataset import Collate
 from .im_pc_dataset import CollateDistillation
 from .merged_datasets import MergedDatasetsDistill
 from .nuscenes_for_scalr import (
+    NuScenesDistill,
+    NuScenesMiniDistill,
+    NuScenesMiniSemSeg,
     NuScenesSemSeg,
     NuScenesSemSeg_1p,
     NuScenesSemSeg_10p,
-    NuScenesDistill,
-)
-from .semantic_kitti_for_scalr import (
-    SemanticKITTISemSeg,
-    SemanticKITTISemSeg_1p,
-    SemanticKITTIDistill,
 )
 from .pandaset_for_scalr import (
-    Pandaset64SemSeg,
-    PandasetGTSemSeg,
     PandaSet64Distill,
+    Pandaset64SemSeg,
     PandaSetGTDistill,
+    PandasetGTSemSeg,
+)
+from .pc_dataset import Collate
+from .semantic_kitti_for_scalr import (
+    SemanticKITTIDistill,
+    SemanticKITTISemSeg,
+    SemanticKITTISemSeg_1p,
 )
 
+__all__ = {Collate, CollateDistillation}
 
 LIST_DATASETS = {
     "nuscenes": NuScenesSemSeg,
     "nuscenes_1p": NuScenesSemSeg_1p,
     "nuscenes_10p": NuScenesSemSeg_10p,
+    "nuscenes_mini": NuScenesMiniSemSeg,
     "semantic_kitti": SemanticKITTISemSeg,
     "semantic_kitti_1p": SemanticKITTISemSeg_1p,
     "panda64": Pandaset64SemSeg,
@@ -46,6 +50,7 @@ LIST_DATASETS = {
 
 LIST_DATASETS_DISTILL = {
     "nuscenes": NuScenesDistill,
+    "nuscenes_mini": NuScenesMiniDistill,
     "semantic_kitti": SemanticKITTIDistill,
     "panda64": PandaSet64Distill,
     "pandagt": PandaSetGTDistill,

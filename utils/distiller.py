@@ -1,4 +1,4 @@
-# Copyright 2024 - Valeo Comfort and Driving Assistance - valeo.ai
+# Copyright 2026 - Valeo Comfort and Driving Assistance - valeo.ai
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import sys
-import torch
 import warnings
+
 import numpy as np
-from tqdm import tqdm
+import torch
 import torch.nn.functional as F
+from torch.cuda import max_memory_allocated
 from torch.cuda.amp import GradScaler
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 
 class Distiller:
@@ -44,6 +45,7 @@ class Distiller:
         self.optim = optim
         self.fp16 = fp16
         self.scaler = GradScaler() if fp16 else None
+        self.dtype = torch.float16 if fp16 else torch.bfloat16
         self.scheduler = scheduler
 
         # Dataloaders
@@ -75,7 +77,12 @@ class Distiller:
     def print_log(self, running_loss):
         if self.rank == 0 or self.rank is None:
             # Global score
-            log = f"\nEpoch: {self.current_epoch:d} :\n" + f" Loss = {running_loss:.3f}"
+            mem = max_memory_allocated() / 1024 / 1024 / 1024
+            log = (
+                f"\nEpoch: {self.current_epoch:d} :\n"
+                + f" Loss = {running_loss:.3f}"
+                + f" GPU mem = {mem:.3f}"
+            )
             print(log)
             sys.stdout.flush()
 
@@ -106,7 +113,7 @@ class Distiller:
             self.train_sampler.set_epoch(self.current_epoch)
 
         # Log frequency
-        print_freq = np.max((len(loader) // 10, 1))
+        print_freq = np.max((len(loader) // 100, 1))
 
         # Stat.
         running_loss = 0.0
@@ -116,12 +123,10 @@ class Distiller:
             bar_format = "{desc:<5.5}{percentage:3.0f}%|{bar:50}{r_bar}"
             loader = tqdm(loader, bar_format=bar_format)
         for it, batch in enumerate(loader):
-
             # Extract image features
             images = batch["images"].cuda(self.rank, non_blocking=True)
-            with torch.autocast("cuda", enabled=self.fp16):
-                feat_im = model_image(images)
-                feat_im = feat_im.permute(0, 2, 3, 1)
+            with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                feat_im = model_image(images).permute(0, 2, 3, 1)
 
             # Input to point network
             feat = batch["feat"].cuda(self.rank, non_blocking=True)
@@ -132,8 +137,9 @@ class Distiller:
             neighbors_emb = batch["neighbors_emb"].cuda(self.rank, non_blocking=True)
             net_inputs = (feat, cell_ind, occupied_cell, neighbors_emb)
 
-            # Get prediction and loss
-            with torch.autocast("cuda", enabled=self.fp16):
+            #
+            self.optim.zero_grad(set_to_none=True)
+            with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                 feat_point = model_point(*net_inputs)
                 # Distillation loss
                 k, q = [], []
@@ -144,43 +150,55 @@ class Distiller:
                 k = F.normalize(torch.cat(k, dim=1), p=2, dim=0)
                 q = F.normalize(torch.cat(q, dim=0), p=2, dim=1)
                 loss = torch.norm(k.transpose(1, 0) - q, dim=1, p=2).mean()
-            running_loss += loss.detach()
+            running_loss += loss.detach().float()
+
+            # Backward
+            if self.fp16:
+                self.scaler.scale(loss).backward()
+            else:
+                loss.backward()
+
+            # Gather scores
+            if self.train_sampler is not None:
+                out = self.gather_scores([running_loss])
+            else:
+                out = [running_loss.cpu()]
 
             # Logs
             if it % print_freq == print_freq - 1 or it == len(loader) - 1:
-                # Gather scores
-                if self.train_sampler is not None:
-                    out = self.gather_scores([running_loss])
-                else:
-                    out = [running_loss.cpu()]
                 if self.rank == 0 or self.rank is None:
                     # Compute scores
-                    running_loss_reduced = out[0].item() / self.world_size / (it + 1)
+                    running_loss_reduced = out[0].item() / self.world_size
+                    running_loss_reduced /= it % print_freq + 1
                     # Print score
                     self.print_log(running_loss_reduced)
                     # Save in tensorboard
-                    if (writer is not None) and (it == len(loader) - 1):
+                    if writer is not None:
                         header = "Pretrain"
                         step = self.current_epoch * len(loader) + it
                         writer.add_scalar(header + "/loss", running_loss_reduced, step)
                         writer.add_scalar(
                             header + "/lr", self.optim.param_groups[0]["lr"], step
                         )
+                # Stat.
+                running_loss = 0.0
 
             # Gradient step
-            self.optim.zero_grad(set_to_none=True)
             if self.fp16:
-                self.scaler.scale(loss).backward()
                 self.scaler.step(self.optim)
                 self.scaler.update()
             else:
-                loss.backward()
                 self.optim.step()
+
+            # Update scheduler
             if self.scheduler is not None:
                 self.scheduler.step()
 
-    def load_state(self):
-        filename = self.path_to_ckpt + "/ckpt_last.pth"
+    def load_state(self, checkpoint_path=""):
+        if checkpoint_path == "":
+            filename = self.path_to_ckpt + "/ckpt_last.pth"
+        else:
+            filename = checkpoint_path
         rank = 0 if self.rank is None else self.rank
         ckpt = torch.load(
             filename,
@@ -195,6 +213,28 @@ class Distiller:
             if ckpt.get("scheduler") is None:
                 warnings.warn("Scheduler state not available")
             else:
+                if (
+                    ckpt["scheduler"]["lr_lambdas"][0]["max_it"]
+                    != self.scheduler.lr_lambdas[0].max_it
+                ):
+                    new = self.scheduler.lr_lambdas[0].max_it
+                    old = ckpt["scheduler"]["lr_lambdas"][0]["max_it"]
+                    ckpt["scheduler"]["lr_lambdas"][0]["max_it"] = (
+                        self.scheduler.lr_lambdas[0].max_it
+                    )
+                    warnings.warn(f"Force max_it in scheduler from {old} to {new}.")
+                if (
+                    ckpt["scheduler"]["lr_lambdas"][0]["cooldown_start"]
+                    != self.scheduler.lr_lambdas[0].cooldown_start
+                ):
+                    new = self.scheduler.lr_lambdas[0].cooldown_start
+                    old = ckpt["scheduler"]["lr_lambdas"][0]["cooldown_start"]
+                    ckpt["scheduler"]["lr_lambdas"][0]["cooldown_start"] = (
+                        self.scheduler.lr_lambdas[0].cooldown_start
+                    )
+                    warnings.warn(
+                        f"Force cooldown_start in scheduler from {old} to {new}."
+                    )
                 self.scheduler.load_state_dict(ckpt["scheduler"])
         if self.fp16:
             if ckpt.get("scaler") is None:
@@ -207,7 +247,7 @@ class Distiller:
             f"Checkpoint loaded on {torch.device(rank)} (cuda:{rank}): {self.path_to_ckpt}"
         )
 
-    def save_state(self):
+    def save_state(self, flag=False):
         if self.rank == 0 or self.rank is None:
             dict_to_save = {
                 "epoch": self.current_epoch,
@@ -218,13 +258,18 @@ class Distiller:
                 else None,
                 "scaler": self.scaler.state_dict() if self.fp16 else None,
             }
-            filename = self.path_to_ckpt + "/ckpt_last.pth"
+            if not flag:
+                filename = self.path_to_ckpt + "/ckpt_last.pth"
+            else:
+                filename = self.path_to_ckpt + f"/ckpt_{self.current_epoch}.pth"
             torch.save(dict_to_save, filename)
 
     def train(self):
         for _ in range(self.current_epoch, self.max_epoch):
             self.one_epoch()
             self.save_state()
+            if self.current_epoch % 5 == 2:
+                self.save_state(True)
             self.current_epoch += 1
         if self.rank == 0 or self.rank is None:
             print("Finished Training")

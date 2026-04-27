@@ -9,8 +9,13 @@ __pycache__/
 # Numpy files
 *.npy
 *.npz
+*.pkl
 
 # Folder used to store models
 logs/
+scripts/
 my_own_logs/
-dinov2_weights/
+
+# Log files
+*.out
+*.txt
