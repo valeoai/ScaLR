@@ -1,3 +1,10 @@
+# Update: ScaLR+
+
+**Newer and better models are available in the branch `scalr_plus`.\
+We encourage you to use this latest version of ScaLR: [ScaLR+](https://github.com/valeoai/ScaLR/tree/scalr_plus).**
+
+Link: https://github.com/valeoai/ScaLR/tree/scalr_plus
+
 # ScaLR
 
 PyTorch code and models for ScaLR image-to-lidar distillation method. This work has been accepted to **CVPR24**.
